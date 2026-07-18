@@ -1,0 +1,421 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: SaaS KPI Dashboard API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: kpis
+    description: KPI metrics endpoints
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /kpis/summary:
+    get:
+      operationId: getKpiSummary
+      tags: [kpis]
+      summary: Get overall KPI summary
+      description: Returns top-level KPI cards (total users, MRR, churn rate, NRR)
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [last_30_days, last_90_days, last_6_months, last_12_months, all_time]
+            default: last_12_months
+      responses:
+        "200":
+          description: KPI summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiSummary"
+
+  /kpis/user-growth:
+    get:
+      operationId: getUserGrowth
+      tags: [kpis]
+      summary: Get user growth over time
+      description: Returns monthly new signups, churned users, and total active users
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [last_6_months, last_12_months, last_24_months]
+            default: last_12_months
+      responses:
+        "200":
+          description: Monthly user growth data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserGrowthPoint"
+
+  /kpis/churn:
+    get:
+      operationId: getChurnMetrics
+      tags: [kpis]
+      summary: Get churn metrics over time
+      description: Returns monthly churn rate, churned count, and revenue churn
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [last_6_months, last_12_months, last_24_months]
+            default: last_12_months
+      responses:
+        "200":
+          description: Monthly churn data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChurnPoint"
+
+  /kpis/retention:
+    get:
+      operationId: getRetentionCohorts
+      tags: [kpis]
+      summary: Get retention cohort data
+      description: Returns cohort-based retention rates by month since acquisition
+      parameters:
+        - name: cohort_count
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 3
+            maximum: 12
+            default: 6
+      responses:
+        "200":
+          description: Cohort retention data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RetentionCohort"
+
+  /kpis/revenue:
+    get:
+      operationId: getRevenueMetrics
+      tags: [kpis]
+      summary: Get revenue metrics over time
+      description: Returns monthly MRR, ARR, new MRR, expansion MRR, and churned MRR
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [last_6_months, last_12_months, last_24_months]
+            default: last_12_months
+      responses:
+        "200":
+          description: Monthly revenue data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RevenuePoint"
+
+  /kpis/subscribers:
+    get:
+      operationId: getSubscribers
+      tags: [kpis]
+      summary: Get subscriber drilldown list
+      description: Returns paginated list of individual subscribers with plan, status, MRR, and tenure
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, at_risk, churned, all]
+            default: all
+        - name: plan
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [starter, growth, enterprise, all]
+            default: all
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [name, plan, mrr, tenure, joined_at]
+            default: mrr
+        - name: sort_dir
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 10
+            maximum: 100
+            default: 25
+      responses:
+        "200":
+          description: Paginated subscriber list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriberList"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    KpiSummary:
+      type: object
+      required:
+        - totalUsers
+        - totalUsersChange
+        - mrr
+        - mrrChange
+        - churnRate
+        - churnRateChange
+        - nrr
+        - nrrChange
+        - newUsersThisPeriod
+        - churnedUsersThisPeriod
+        - avgRevenuePerUser
+        - avgRevenuePerUserChange
+      properties:
+        totalUsers:
+          type: integer
+        totalUsersChange:
+          type: number
+          description: Percentage change vs prior period
+        mrr:
+          type: number
+          description: Monthly Recurring Revenue in USD
+        mrrChange:
+          type: number
+          description: Percentage change vs prior period
+        churnRate:
+          type: number
+          description: Monthly churn rate as a percentage
+        churnRateChange:
+          type: number
+          description: Change in churn rate vs prior period (percentage points)
+        nrr:
+          type: number
+          description: Net Revenue Retention as a percentage
+        nrrChange:
+          type: number
+          description: Change in NRR vs prior period (percentage points)
+        newUsersThisPeriod:
+          type: integer
+        churnedUsersThisPeriod:
+          type: integer
+        avgRevenuePerUser:
+          type: number
+        avgRevenuePerUserChange:
+          type: number
+
+    UserGrowthPoint:
+      type: object
+      required:
+        - month
+        - newUsers
+        - churnedUsers
+        - totalUsers
+        - netNew
+      properties:
+        month:
+          type: string
+          description: ISO month label e.g. "2024-01"
+        newUsers:
+          type: integer
+        churnedUsers:
+          type: integer
+        totalUsers:
+          type: integer
+        netNew:
+          type: integer
+          description: newUsers minus churnedUsers
+
+    ChurnPoint:
+      type: object
+      required:
+        - month
+        - churnRate
+        - churnedUsers
+        - revenueChurnRate
+        - churnedMrr
+      properties:
+        month:
+          type: string
+        churnRate:
+          type: number
+          description: User churn rate as a percentage
+        churnedUsers:
+          type: integer
+        revenueChurnRate:
+          type: number
+          description: Revenue churn rate as a percentage
+        churnedMrr:
+          type: number
+
+    RetentionCohort:
+      type: object
+      required:
+        - cohortMonth
+        - cohortSize
+        - retention
+      properties:
+        cohortMonth:
+          type: string
+          description: Cohort acquisition month e.g. "2024-01"
+        cohortSize:
+          type: integer
+        retention:
+          type: array
+          description: Retention rates by month index (0 = acquisition month = 100%)
+          items:
+            type: ["number", "null"]
+
+    RevenuePoint:
+      type: object
+      required:
+        - month
+        - mrr
+        - arr
+        - newMrr
+        - expansionMrr
+        - churnedMrr
+        - netNewMrr
+      properties:
+        month:
+          type: string
+        mrr:
+          type: number
+        arr:
+          type: number
+        newMrr:
+          type: number
+        expansionMrr:
+          type: number
+        churnedMrr:
+          type: number
+        netNewMrr:
+          type: number
+
+    SubscriberRecord:
+      type: object
+      required:
+        - id
+        - externalId
+        - name
+        - email
+        - plan
+        - status
+        - mrr
+        - joinedAt
+        - tenureMonths
+      properties:
+        id:
+          type: integer
+        externalId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        plan:
+          type: string
+          enum: [starter, growth, enterprise]
+        status:
+          type: string
+          enum: [active, at_risk, churned]
+        mrr:
+          type: number
+        joinedAt:
+          type: string
+          description: ISO date string
+        churnedAt:
+          type: string
+          nullable: true
+          description: ISO date string, null if still active
+        tenureMonths:
+          type: integer
+        churnRiskScore:
+          type: integer
+          description: Churn risk score 0-100 (higher = more likely to churn); null for churned subscribers
+          nullable: true
+
+    SubscriberList:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - pageSize
+        - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubscriberRecord"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
